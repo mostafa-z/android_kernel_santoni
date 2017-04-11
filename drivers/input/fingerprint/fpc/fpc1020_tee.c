@@ -44,6 +44,11 @@
 #include <soc/qcom/scm.h>
 #include <linux/platform_device.h>
 #include <linux/wakelock.h>
+#include <linux/input.h>
+#include <linux/display_state.h>
+
+/* Fake FP Key */
+#define KEY_FINGERPRINT 0x2ee
 
 #define FPC1020_RESET_LOW_US 1000
 #define FPC1020_RESET_HIGH1_US 100
@@ -72,6 +77,7 @@ struct fpc1020_data {
 #endif
 
 	struct wake_lock ttw_wl;
+	struct input_dev *input_dev;
 	int irq_gpio;
 	int rst_gpio;
 	struct mutex lock;
@@ -449,6 +455,36 @@ static const struct attribute_group attribute_group = {
 	.attrs = attributes,
 };
 
+static int fpc1020_input_init(struct fpc1020_data * fpc1020)
+{
+	int ret;
+
+	fpc1020->input_dev = input_allocate_device();
+	if (!fpc1020->input_dev) {
+		pr_err("fingerprint input boost allocation is fucked - 1 star\n");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	fpc1020->input_dev->name = "fpc1020";
+	fpc1020->input_dev->evbit[0] = BIT(EV_KEY);
+
+	set_bit(KEY_FINGERPRINT, fpc1020->input_dev->keybit);
+
+	ret = input_register_device(fpc1020->input_dev);
+	if (ret) {
+		pr_err("fingerprint boost input registration is fucked - fixpls\n");
+		goto err_free_dev;
+	}
+
+	return 0;
+
+err_free_dev:
+	input_free_device(fpc1020->input_dev);
+exit:
+	return ret;
+}
+
 static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 {
 	struct fpc1020_data *fpc1020 = handle;
@@ -464,6 +500,13 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 	}
 
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
+
+	if (!is_display_on()) {
+		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
+		input_sync(fpc1020->input_dev);
+		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
+		input_sync(fpc1020->input_dev);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -546,6 +589,10 @@ static int fpc1020_probe(struct platform_device *pdev)
 	fpc1020->clocks_suspended = false;
 #endif
 
+	rc = fpc1020_input_init(fpc1020);
+	if (rc)
+		goto exit;
+
 	mutex_init(&fpc1020->lock);
 
 	wake_lock_init(&fpc1020->ttw_wl, WAKE_LOCK_SUSPEND, "fpc_ttw_wl");
@@ -564,6 +611,9 @@ exit:
 static int fpc1020_remove(struct platform_device *pdev)
 {
 	struct  fpc1020_data *fpc1020 = dev_get_drvdata(&pdev->dev);
+
+	if (fpc1020->input_dev != NULL)
+		input_free_device(fpc1020->input_dev);
 
 	sysfs_remove_group(&pdev->dev.kobj, &attribute_group);
 	mutex_destroy(&fpc1020->lock);

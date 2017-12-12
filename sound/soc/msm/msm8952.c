@@ -31,6 +31,7 @@
 #include "msm-audio-pinctrl.h"
 #include "../codecs/msm8x16-wcd.h"
 #include "../codecs/wsa881x-analog.h"
+#include "../codecs/aw87319.h"
 #include <linux/regulator/consumer.h>
 #define DRV_NAME "msm8952-asoc-wcd"
 
@@ -254,23 +255,16 @@ done:
 int is_ext_spk_gpio_support(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
-	const char *spk_ext_pa = "qcom,msm-spk-ext-pa";
-
 	pr_debug("%s:Enter\n", __func__);
 
-	pdata->spk_ext_pa_gpio = of_get_named_gpio(pdev->dev.of_node,
-				spk_ext_pa, 0);
+	pdata->spk_ext_pa_gpio = 0x7c;
 
-	if (pdata->spk_ext_pa_gpio < 0) {
-		dev_dbg(&pdev->dev,
-			"%s: missing %s in dt node\n", __func__, spk_ext_pa);
-	} else {
-		if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
-			pr_err("%s: Invalid external speaker gpio: %d",
-				__func__, pdata->spk_ext_pa_gpio);
-			return -EINVAL;
-		}
+	if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
+		pr_err("%s: Invalid external speaker gpio: %d",
+			__func__, pdata->spk_ext_pa_gpio);
+		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -290,13 +284,15 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
+		AW87319_Audio_Speaker();		
+
 		ret = msm_gpioset_activate(CLIENT_WCD_INT, "ext_spk_gpio");
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
 			return ret;
 		}
-		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 	} else {
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "ext_spk_gpio");
@@ -747,14 +743,10 @@ static void msm8952_ext_hs_delay_enable(struct work_struct *work)
 
 static void msm8952_ext_spk_control(u32 enable)
 {
-	int i = 0;
 
 	if (enable) {
 		/* Open external audio PA device */
-		for (i = 0; i < AW8738_MODE; i++) {
-			gpio_direction_output(spk_pa_gpio, false);
-			gpio_direction_output(spk_pa_gpio, true);
-		}
+		AW87319_Audio_Speaker();
 		usleep_range(EXT_CLASS_D_EN_DELAY,
 		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
 	} else {
@@ -770,13 +762,8 @@ static void msm8952_ext_spk_control(u32 enable)
 
 static void msm8952_ext_spk__delayed_enable(struct work_struct *work)
 {
-	int i = 0;
-
 	/* Open external audio PA device */
-	for (i = 0; i < AW8738_MODE; i++) {
-		gpio_direction_output(spk_pa_gpio, false);
-		gpio_direction_output(spk_pa_gpio, true);
-	}
+	AW87319_Audio_Speaker();
 	usleep_range(EXT_CLASS_D_EN_DELAY,
 	EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
 
@@ -785,17 +772,12 @@ static void msm8952_ext_spk__delayed_enable(struct work_struct *work)
 
 static void msm8x16_ext_spk_delayed_dualmode(struct work_struct *work)
 {
-	int i = 0;
-
 	/* Open the headset device */
 	gpio_direction_output(headset_gpio, true);
 	usleep_range(EXT_CLASS_D_EN_DELAY,
 		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
-
-	for (i = 0; i < AW8738_MODE; i++) {
-		gpio_direction_output(spk_pa_gpio, false);
-		gpio_direction_output(spk_pa_gpio, true);
-	}
+	/* Open external audio PA device */
+	AW87319_Audio_Speaker();
 	usleep_range(EXT_CLASS_D_EN_DELAY,
 		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
 

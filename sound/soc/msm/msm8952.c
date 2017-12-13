@@ -49,7 +49,6 @@
 #define QUIN_MI2S_ID	(1 << 4)
 
 #define DEFAULT_MCLK_RATE 9600000
-#define AW8738_MODE 5
 
 #define WCD_MBHC_DEF_RLOADS 5
 #define MAX_WSA_CODEC_NAME_LENGTH 80
@@ -255,14 +254,22 @@ done:
 int is_ext_spk_gpio_support(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
+	const char *spk_ext_pa = "qcom,msm-spk-ext-pa";
+
 	pr_debug("%s:Enter\n", __func__);
 
-	pdata->spk_ext_pa_gpio = 0x7c;
+	pdata->spk_ext_pa_gpio = of_get_named_gpio(pdev->dev.of_node,
+				spk_ext_pa, 0);
 
-	if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
-		pr_err("%s: Invalid external speaker gpio: %d",
-			__func__, pdata->spk_ext_pa_gpio);
-		return -EINVAL;
+	if (pdata->spk_ext_pa_gpio < 0) {
+		dev_dbg(&pdev->dev,
+			"%s: missing %s in dt node\n", __func__, spk_ext_pa);
+	} else {
+		if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
+			pr_err("%s: Invalid external speaker gpio: %d",
+				__func__, pdata->spk_ext_pa_gpio);
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -284,15 +291,13 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
-		AW87319_Audio_Speaker();		
-
 		ret = msm_gpioset_activate(CLIENT_WCD_INT, "ext_spk_gpio");
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
 			return ret;
 		}
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 	} else {
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "ext_spk_gpio");

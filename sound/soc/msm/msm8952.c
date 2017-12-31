@@ -254,7 +254,7 @@ done:
 int is_ext_spk_gpio_support(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
-	const char *spk_ext_pa = "qcom,msm-spk-ext-pa";
+	const char *spk_ext_pa = "ext-spk-amp-gpio";
 
 	pr_debug("%s:Enter\n", __func__);
 
@@ -279,7 +279,6 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 {
 	struct snd_soc_card *card = codec->component.card;
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-	int ret;
 
 	if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
 		pr_err("%s: Invalid gpio: %d\n", __func__,
@@ -291,22 +290,14 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		ret = msm_gpioset_activate(CLIENT_WCD_INT, "ext_spk_gpio");
-		if (ret) {
-			pr_err("%s: gpio set cannot be de-activated %s\n",
-					__func__, "ext_spk_gpio");
-			return ret;
-		}
+		AW87319_Audio_Speaker();
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
+		udelay(2);
 	} else {
+		gpio_direction_output(pdata->spk_ext_pa_gpio, false);
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
-		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "ext_spk_gpio");
-		if (ret) {
-			pr_err("%s: gpio set cannot be de-activated %s\n",
-					__func__, "ext_spk_gpio");
-			return ret;
-		}
 	}
+
 	return 0;
 }
 

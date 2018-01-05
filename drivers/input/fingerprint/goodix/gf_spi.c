@@ -110,13 +110,13 @@ static void gf_enable_irq(struct gf_dev *gf_dev)
 	struct irq_desc *desc;
 
 	if (gf_dev->irq_enabled) {
-		pr_warn("IRQ has been enabled.\n");
+		pr_warn("IRQ already enabled.\n");
 	} else {
 		desc = irq_to_desc(gf_dev->irq);
 		if (desc && desc->depth > 0) {
 			enable_irq(gf_dev->irq);
 			gf_dev->irq_enabled = 1;
-			pr_info("%s: irq_enabled:%d", __func__, gf_dev->irq_enabled);
+			pr_warn("IRQ has been enabled.\n");
 		}
 	}
 }
@@ -126,8 +126,9 @@ static void gf_disable_irq(struct gf_dev *gf_dev)
 	if (gf_dev->irq_enabled) {
 		gf_dev->irq_enabled = 0;
 		disable_irq(gf_dev->irq);
-	} else {
 		pr_warn("IRQ has been disabled.\n");
+	} else {
+		pr_warn("IRQ already disabled.\n");
 	}
 }
 
@@ -383,16 +384,18 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case GF_IOC_POWER_ON:
 		if (gf_dev->device_available == 1)
 			pr_info("Sensor has already powered-on.\n");
-		else
+		else {
 			gf_power_on(gf_dev);
 			gf_dev->device_available = 1;
-			break;
+		}
+		break;
 	case GF_IOC_POWER_OFF:
 		if (gf_dev->device_available == 0)
 			pr_info("Sensor has already powered-off.\n");
-		else
+		else {
 			gf_power_off(gf_dev);
 			gf_dev->device_available = 0;
+		}
 		break;
 	default:
 		gf_dbg("Unsupport cmd:0x%x\n", cmd);
@@ -456,12 +459,10 @@ static int driver_init_partial(struct gf_dev *gf_dev)
 		pr_err("Could not request irq %d\n", gpio_to_irq(gf_dev->irq_gpio));
 		goto error;
 	}
-	if (!ret) {
-		enable_irq_wake(gf_dev->irq);
-		gf_enable_irq(gf_dev);
-		gf_disable_irq(gf_dev);
-	}
 
+	enable_irq_wake(gf_dev->irq);
+	gf_enable_irq(gf_dev);
+	gf_disable_irq(gf_dev);
 	gf_hw_reset(gf_dev, 360);
 
 	FUNC_EXIT();
@@ -494,14 +495,12 @@ static int gf_open(struct inode *inode, struct file *filp)
 	}
 
 	if (status == 0) {
-		if (status == 0) {
-			gf_dev->users++;
-			filp->private_data = gf_dev;
-			nonseekable_open(inode, filp);
-			gf_dbg("Succeed to open device. irq = %d\n",
-					gf_dev->irq);
-			 gf_dev->device_available = 1;
-		}
+		gf_dev->users++;
+		filp->private_data = gf_dev;
+		nonseekable_open(inode, filp);
+		gf_dbg("Succeed to open device. irq = %d\n",
+				gf_dev->irq);
+		 gf_dev->device_available = 1;
 	} else {
 		gf_dbg("No device for minor %d\n", iminor(inode));
 	}
@@ -541,7 +540,7 @@ static int gf_release(struct inode *inode, struct file *filp)
 		gf_disable_irq(gf_dev);
 		devm_free_irq(&gf_dev->spi->dev, gf_dev->irq, gf_dev);
 
-	/*power off the sensor*/
+		/*power off the sensor*/
 		gf_dev->device_available = 0;
 		gf_power_off(gf_dev);
 	}
@@ -769,9 +768,10 @@ static int gf_remove(struct platform_device *pdev)
 	if (gf_dev->irq)
 		free_irq(gf_dev->irq, gf_dev);
 
-	if (gf_dev->input != NULL)
+	if (gf_dev->input != NULL) {
 		input_unregister_device(gf_dev->input);
 		input_free_device(gf_dev->input);
+	}
 
 	/* prevent new opens */
 	mutex_lock(&device_list_lock);

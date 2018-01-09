@@ -1,0 +1,8 @@
+#!/bin/bash
+
+rm -f repack_zip/boot/zImage
+rm -f repack_zip/system/lib/modules/*.ko
+rm -f repack_zip/system/lib/modules/pronto/*.ko
+
+make clean && make mrproper
+

@@ -3,6 +3,7 @@
 rm -f repack_zip/boot/zImage
 rm -f repack_zip/system/lib/modules/*.ko
 rm -f repack_zip/system/lib/modules/pronto/*.ko
+rm -f drivers/platform/msm/ipa/ipa_common
 
 make clean && make mrproper
 

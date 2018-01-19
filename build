@@ -21,7 +21,7 @@ mv repack_zip/system/lib/modules/wlan.ko repack_zip/system/lib/modules/pronto/pr
 cd repack_zip
 
 if [ ! $VER ] && [ ! $SUB ]; then
-	zip -r ../../release_testing/Clarity-Testing-Santoni.zip *
+	zip -r ../../release_testing/Clarity-Testing-MIUI_HM4X.zip *
 else
-	zip -r ../../release_santoni/Clarity-v$VER.$SUB-Santoni.zip *
+	zip -r ../../release_santoni/Clarity-v$VER.$SUB-MIUI_HM4X.zip *
 fi

@@ -4,6 +4,8 @@ mount("ext4", "EMMC", "/dev/block/bootdevice/by-name/system", "/system", "max_ba
 ui_print("-----------------------------------");
 ui_print("-         Clarity Kernel          -");
 ui_print("-----------------------------------");
+ui_print("-              MIUI               -");
+ui_print("-----------------------------------");
 ui_print("-    Redmi 4X | HM4X | Santoni    -");
 ui_print("-----------------------------------");
 show_progress(1.000000, 0);

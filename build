@@ -4,19 +4,8 @@ VER=$1
 SUB=$2
 
 rm -f repack_zip/boot/zImage
-rm -f repack_zip/system/lib/modules/*.ko
-rm -f repack_zip/system/lib/modules/pronto/*.ko
-
-if [ ! -d repack_zip/system ]; then
-	mkdir repack_zip/system
-	mkdir repack_zip/system/lib
-	mkdir repack_zip/system/lib/modules
-	mkdir repack_zip/system/lib/modules/pronto
-fi
 
 mv arch/arm64/boot/Image.gz-dtb repack_zip/boot/zImage
-find -name "*.ko" -exec mv {} repack_zip/system/lib/modules \;
-mv repack_zip/system/lib/modules/wlan.ko repack_zip/system/lib/modules/pronto/pronto_wlan.ko
 
 cd repack_zip
 

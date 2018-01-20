@@ -78,6 +78,7 @@ struct gf_dev {
 	int irq;
 	int irq_enabled;
 	int clk_enabled;
+	bool boosted;
 #ifdef GF_FASYNC
 	struct fasync_struct *async;
 #endif

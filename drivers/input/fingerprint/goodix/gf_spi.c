@@ -269,6 +269,26 @@ static int gfspi_ioctl_clk_uninit(struct gf_dev *data)
 }
 #endif
 
+static void check_goodix_boosted(int enable)
+{
+	struct gf_dev *gf_dev = &gf;
+	unsigned int ret;
+
+	if (gf_dev->boosted) {
+		if (!enable) {
+			ret = sched_set_boost(0);
+			if (!ret)
+				gf_dev->boosted = false;
+		}
+	} else {
+		if (enable) {
+			ret = sched_set_boost(1);
+			if (!ret)
+				gf_dev->boosted = true;
+		}
+	}
+}
+
 static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct gf_dev *gf_dev = &gf;
@@ -354,10 +374,10 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 					input_sync(gf_dev->input);
 				} else {
 					if (!is_display_on()) {
-						sched_set_boost(1);
+						check_goodix_boosted(1);
 						input_report_key(gf_dev->input, gf_key.key, gf_key.value);
 						input_sync(gf_dev->input);
-						sched_set_boost(0);
+						check_goodix_boosted(0);
 					} else {
 						input_report_key(gf_dev->input, gf_key.key, gf_key.value);
 						input_sync(gf_dev->input);
@@ -679,6 +699,7 @@ static int gf_probe(struct platform_device *pdev)
 	gf_dev->fb_black  =  0;
 	gf_dev->irq_enabled = 0;
 	gf_dev->fingerprint_pinctrl = NULL;
+	gf_dev->boosted = false;
 
 	/* If we can allocate a minor number, hook up this device.
 	 * Reusing minors is fine so long as udev or mdev is working.

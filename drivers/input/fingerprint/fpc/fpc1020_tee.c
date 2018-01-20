@@ -84,6 +84,7 @@ struct fpc1020_data {
 	bool prepared;
 	bool wakeup_enabled;
 	bool compatible_enabled;
+	bool boosted;
 #ifdef LINUX_CONTROL_SPI_CLK
 	bool clocks_enabled;
 	bool clocks_suspended;
@@ -488,6 +489,8 @@ exit:
 static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 {
 	struct fpc1020_data *fpc1020 = handle;
+	unsigned int ret;
+
 	dev_dbg(fpc1020->dev, "%s\n", __func__);
 
 	/* Make sure 'wakeup_enabled' is updated before using it
@@ -502,12 +505,20 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
 
 	if (!is_display_on()) {
-		sched_set_boost(1);
+		if (!fpc1020->boosted) {
+			ret = sched_set_boost(1);
+			if (!ret)
+				fpc1020->boosted = true;
+		}
 		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
 		input_sync(fpc1020->input_dev);
 		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
 		input_sync(fpc1020->input_dev);
-		sched_set_boost(0);
+		if (fpc1020->boosted) {
+			ret = sched_set_boost(0);
+			if (!ret)
+				fpc1020->boosted = false;
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -586,6 +597,7 @@ static int fpc1020_probe(struct platform_device *pdev)
 		*/
 
 	fpc1020->wakeup_enabled = false;
+	fpc1020->boosted = false;
 #ifdef LINUX_CONTROL_SPI_CLK
 	fpc1020->clocks_enabled = false;
 	fpc1020->clocks_suspended = false;
